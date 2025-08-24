@@ -34,7 +34,9 @@ jobs:
  
     - name: Step 03.1 - Setup Backend S3
       id: SETUP_BACKEND
-      run: ./terraform/modules/backend/scripts/setup.sh ${{ secrets.GH_ACCESS_TOKEN }}
+      run: |
+        chmod +x ./terraform/modules/backend/scripts/setup.sh
+        ./terraform/modules/backend/scripts/setup.sh ${{ secrets.GH_ACCESS_TOKEN }}
 
     - name: Step 04 - Terraform Init
       run: |
