@@ -1,0 +1,57 @@
+name: Terraform Pipeline
+
+on:
+  push:
+    branches:
+    - main
+
+env:
+  TERRAFORM_VERSION: 1.12.2
+
+jobs:
+
+  tf-aws:
+    name: AWS provider
+    runs-on: ubuntu-latest
+ 
+    steps:
+
+    - name: Step 01 - Terraform Setup
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Step 02 - CheckOut GitHub Repo
+      uses: actions/checkout@v4
+
+    - name: Step 03 - Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id    : ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token    : ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region           : us-east-1
+ 
+    - name: Step 03.1 - Setup Backend S3
+      id: SETUP_BACKEND
+      run: ./terraform/modules/backend/scripts/setup.sh ${{ secrets.GH_ACCESS_TOKEN }}
+
+    - name: Step 04 - Terraform Init
+      run: |
+        terraform -chdir=./terraform init \
+          -backend-config="bucket=${{ steps.SETUP_BACKEND.outputs.AWS_BUCKET_TFSTATE_ID }}" \
+          -backend-config="key=tfstate" \
+          -backend-config="region=us-east-1" \
+          -backend-config="use_lockfile=true"
+
+    - name: Step 05 - Terraform Validate
+      run : terraform -chdir=./terraform validate
+
+    - name: Step 06 - Terraform Plan
+      run : terraform -chdir=./terraform plan -out tfplan
+
+    - name: Step 07 - Terraform Apply
+      run : terraform -chdir=./terraform apply tfplan
+
+    - name: Step 08 - Terraform Show
+      run : terraform -chdir=./terraform show
