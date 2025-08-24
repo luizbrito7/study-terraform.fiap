@@ -4,6 +4,16 @@ on:
   push:
     branches:
     - main
+  workflow_dispatch:
+    inputs:
+      destroy:
+        description: 'Destroy infrastructure'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
 
 env:
   TERRAFORM_VERSION: 1.12.2
@@ -57,3 +67,7 @@ jobs:
 
     - name: Step 08 - Terraform Show
       run : terraform -chdir=./terraform show
+
+    - name: Step 09 - Terraform Destroy (if enabled)
+      if: github.event.inputs.destroy == 'true'
+      run: terraform -chdir=./terraform destroy -auto-approve
