@@ -110,7 +110,7 @@ variable "ec2_asg_desired_capacity" {
 
 variable "ec2_asg_min_size" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "ec2_asg_max_size" {
