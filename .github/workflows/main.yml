@@ -36,7 +36,7 @@ jobs:
       id: SETUP_BACKEND
       run: |
         chmod +x ./terraform/modules/backend/scripts/setup.sh
-        ./terraform/modules/backend/scripts/setup.sh ${{ secrets.GH_ACCESS_TOKEN }}
+        ./terraform/modules/backend/scripts/setup.sh ${{ secrets.GH_ACCESS_TOKEN }} ${{ github.run_id }}
 
     - name: Step 04 - Terraform Init
       run: |
