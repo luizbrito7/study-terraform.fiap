@@ -3,7 +3,7 @@ name: Terraform Pipeline
 on:
   push:
     branches:
-      - test
+      - main
 
 env:
   TERRAFORM_VERSION: 1.13.1
