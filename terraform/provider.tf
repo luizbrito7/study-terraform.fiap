@@ -10,5 +10,10 @@ terraform {
     }
   }
 
-  backend "s3" {}
+  backend "s3" {
+    bucket       = "bucket-tfstate-5737483"
+    key          = "tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+  }
 }
