@@ -3,29 +3,63 @@ name: Terraform Pipeline
 on:
   push:
     branches:
-    - main
-  workflow_dispatch:
-    inputs:
-      destroy:
-        description: 'Destroy infrastructure'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-        - 'true'
-        - 'false'
+      - test
 
 env:
-  TERRAFORM_VERSION: 1.12.2
+  TERRAFORM_VERSION: 1.13.1
 
 jobs:
 
-  tf-aws:
-    name: AWS provider
+  test:
+    name: Test
     runs-on: ubuntu-latest
- 
+    
     steps:
+    - name: Step 01 - Terraform Setup
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
 
+    - name: Step 02 - CheckOut GitHub Repo
+      uses: actions/checkout@v4
+
+    - name: Step 03 - Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id    : ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token    : ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region           : ${{ vars.AWS_REGION }}
+
+    - name: Step 04 - Terraform Init
+      run: terraform -chdir=./terraform init
+
+    - name: Step 05 - Terraform Validate
+      run: terraform -chdir=./terraform validate
+
+    - name: Step 06 - Terraform Format Check
+      run: terraform -chdir=./terraform fmt -check -diff -recursive
+
+    - name: Step 07 - Terraform Plan
+      run: terraform -chdir=./terraform plan -out=tfplan
+
+    - name: Step 08 - Terraform Test
+      run: terraform -chdir=./terraform test -verbose
+
+    - name: Step 09 - Checkov
+      uses: bridgecrewio/checkov-action@master
+      with:
+        framework: terraform
+        output_format: cli
+        output_file_path: console
+        soft_fail: true
+  
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
     - name: Step 01 - Terraform Setup
       uses: hashicorp/setup-terraform@v3
       with:
@@ -41,33 +75,15 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-session-token    : ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region           : us-east-1
- 
-    - name: Step 03.1 - Setup Backend S3
-      id: SETUP_BACKEND
-      run: |
-        chmod +x ./terraform/modules/backend/scripts/setup.sh
-        ./terraform/modules/backend/scripts/setup.sh ${{ secrets.GH_ACCESS_TOKEN }} ${{ github.run_id }}
 
     - name: Step 04 - Terraform Init
-      run: |
-        terraform -chdir=./terraform init \
-          -backend-config="bucket=${{ steps.SETUP_BACKEND.outputs.AWS_BUCKET_TFSTATE_ID }}" \
-          -backend-config="key=tfstate" \
-          -backend-config="region=us-east-1" \
-          -backend-config="use_lockfile=true"
+      run: terraform -chdir=./terraform init
 
-    - name: Step 05 - Terraform Validate
-      run : terraform -chdir=./terraform validate
+    - name: Step 05 - Terraform Plan
+      run: terraform -chdir=./terraform plan -out=tfplan
 
-    - name: Step 06 - Terraform Plan
-      run : terraform -chdir=./terraform plan -out tfplan
+    - name: Step 06 - Terraform Apply
+      run: terraform -chdir=./terraform apply tfplan
 
-    - name: Step 07 - Terraform Apply
-      run : terraform -chdir=./terraform apply tfplan
-
-    - name: Step 08 - Terraform Show
-      run : terraform -chdir=./terraform show
-
-    - name: Step 09 - Terraform Destroy (if enabled)
-      if: github.event.inputs.destroy == 'true'
-      run: terraform -chdir=./terraform destroy -auto-approve
+    - name: Step 07 - Terraform Show
+      run: terraform -chdir=./terraform show
